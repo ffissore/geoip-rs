@@ -1,0 +1,19 @@
+[package]
+name = "geoip-rs"
+version = "0.1.0"
+authors = ["Federico Fissore <federico@fissore.org>"]
+edition = "2018"
+
+[dependencies]
+iron = "0.6.*"
+urlencoded = "0.6.*"
+ipaddress = "0.1.2"
+csv = "1"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+regex = "1"
+lazy_static = "1.2.0"
+log = "0.4.6"
+simple-logging = "2.0.2"
+iron-cors = "0.8.0"
