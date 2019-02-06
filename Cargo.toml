@@ -1,8 +1,10 @@
 [package]
 name = "geoip-rs"
+description = "geoip-rs provides geographical information about the calling or the specified IP address"
 version = "0.1.0"
 authors = ["Federico Fissore <federico@fissore.org>"]
 edition = "2018"
+license = "Apache-2.0"
 
 [dependencies]
 iron = "0.6.*"
