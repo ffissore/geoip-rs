@@ -38,9 +38,9 @@ impl GeoIPDB {
         let netmask = u8::from_str_radix(network.split("/").last().unwrap(), 10).unwrap();
 
         let expanded_networks;
-        if netmask < 24 {
+        if netmask < 16 {
             expanded_networks = IPAddress::parse(network).unwrap()
-                .subnet(24).unwrap()
+                .subnet(16).unwrap()
                 .iter()
                 .map(|network| GeoIPDB::ip_to_map_key(&network.to_string()))
                 .collect();
@@ -54,9 +54,9 @@ impl GeoIPDB {
     fn ip_to_map_key(ip_address: &str) -> u32 {
         ip_address
             .split(".")
-            .take(3)
+            .take(2)
             .map(|part| u32::from_str_radix(part, 10).unwrap())
-            .scan(1_000_000, |state, value| {
+            .scan(1_000, |state, value| {
                 let res = *state * value;
                 *state = *state / 1000;
                 Some(res)
@@ -136,8 +136,8 @@ mod tests {
 
     #[test]
     fn ip_to_number() {
-        assert_eq!(255255255, GeoIPDB::ip_to_map_key("255.255.255.12"));
-        assert_eq!(1000000, GeoIPDB::ip_to_map_key("1.0.0.1"));
-        assert_eq!(81030009, GeoIPDB::ip_to_map_key("81.30.9.30"));
+        assert_eq!(255255, GeoIPDB::ip_to_map_key("255.255.255.12"));
+        assert_eq!(1000, GeoIPDB::ip_to_map_key("1.0.0.1"));
+        assert_eq!(81030, GeoIPDB::ip_to_map_key("81.30.9.30"));
     }
 }
