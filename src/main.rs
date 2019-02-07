@@ -129,7 +129,7 @@ impl Handler for ResolveIPHandler {
 
         let geoip = self.db.resolve(&ip_address)
             .map(|geoip| {
-                let location = self.db.get_location(geoip.location);
+                let location = self.db.get_location(geoip.geoname_id);
                 ResolvedIPResponse {
                     ip_address: &ip_address,
                     latitude: geoip.latitude,

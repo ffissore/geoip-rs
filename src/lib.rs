@@ -23,23 +23,14 @@ use std::sync::Arc;
 use ipaddress::IPAddress;
 use log::info;
 
-use crate::datasets::Location;
+use crate::datasets::{Block, Location};
 
 mod datasets;
 
 #[derive(Debug)]
-pub struct GeoIP {
-    pub latitude: f32,
-    pub longitude: f32,
-    pub postal_code: String,
-    pub location: u32,
-    network: String,
-}
-
-#[derive(Debug)]
 pub struct GeoIPDB {
     locations: HashMap<u32, Location>,
-    blocks: HashMap<u32, Vec<Arc<GeoIP>>>,
+    blocks: HashMap<u32, Vec<Arc<Block>>>,
 }
 
 impl GeoIPDB {
@@ -82,21 +73,15 @@ impl GeoIPDB {
             .map(|block| {
                 let networks = GeoIPDB::expand_network(&block.network);
 
-                let geo_ip = Arc::new(GeoIP {
-                    latitude: block.latitude.unwrap(),
-                    longitude: block.longitude.unwrap(),
-                    postal_code: block.postal_code,
-                    location: block.geoname_id.unwrap(),
-                    network: block.network,
-                });
+                let block = Arc::new(block);
 
-                (geo_ip, networks)
+                (block, networks)
             })
-            .for_each(|(geo_ip, networks)| {
+            .for_each(|(block, networks)| {
                 networks.iter()
                     .for_each(|network| {
                         let geo_ips = blocks.entry(*network).or_insert(Vec::new());
-                        geo_ips.push(Arc::clone(&geo_ip));
+                        geo_ips.push(Arc::clone(&block));
                     });
             });
 
@@ -115,7 +100,7 @@ impl GeoIPDB {
         }
     }
 
-    pub fn resolve(&self, ip_address: &str) -> Option<&Arc<GeoIP>> {
+    pub fn resolve(&self, ip_address: &str) -> Option<&Arc<Block>> {
         let candidates = self.blocks.get(&GeoIPDB::ip_to_map_key(ip_address));
         let ip_address = IPAddress::parse(ip_address).unwrap();
 
@@ -127,8 +112,8 @@ impl GeoIPDB {
         })
     }
 
-    pub fn get_location(&self, location_id: u32) -> &Location {
-        self.locations.get(&location_id).unwrap()
+    pub fn get_location(&self, geoname_id: u32) -> &Location {
+        self.locations.get(&geoname_id).unwrap()
     }
 }
 

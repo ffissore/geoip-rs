@@ -21,7 +21,7 @@ use csv::Reader;
 use self::csv::Error;
 
 #[derive(Debug, Deserialize)]
-pub struct Block {
+struct RawBlock {
     pub network: String,
     pub geoname_id: Option<u32>,
     pub postal_code: String,
@@ -29,12 +29,28 @@ pub struct Block {
     pub longitude: Option<f32>,
 }
 
+#[derive(Debug)]
+pub struct Block {
+    pub network: String,
+    pub geoname_id: u32,
+    pub postal_code: String,
+    pub latitude: f32,
+    pub longitude: f32,
+}
+
 pub fn parse_blocks_csv<'b, R: io::Read>(source: R) -> impl Iterator<Item=Block> {
     let reader = Reader::from_reader(source);
 
     reader.into_deserialize()
-        .map(|result: Result<Block, Error>| result.unwrap())
+        .map(|result: Result<RawBlock, Error>| result.unwrap())
         .filter(|record| record.geoname_id.is_some() && record.latitude.is_some() && record.longitude.is_some())
+        .map(|rawblock| Block {
+            network: rawblock.network,
+            geoname_id: rawblock.geoname_id.unwrap(),
+            postal_code: rawblock.postal_code,
+            latitude: rawblock.latitude.unwrap(),
+            longitude: rawblock.longitude.unwrap(),
+        })
 }
 
 #[derive(Debug, Deserialize)]
