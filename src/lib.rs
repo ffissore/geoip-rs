@@ -18,7 +18,6 @@ extern crate serde_derive;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
-use std::sync::Arc;
 
 use ipaddress::IPAddress;
 use log::info;
@@ -30,7 +29,7 @@ mod datasets;
 #[derive(Debug)]
 pub struct GeoIPDB {
     locations: HashMap<u32, Location>,
-    blocks: HashMap<u32, Vec<Arc<Block>>>,
+    blocks: HashMap<u32, Vec<Block>>,
 }
 
 impl GeoIPDB {
@@ -73,15 +72,13 @@ impl GeoIPDB {
             .map(|block| {
                 let networks = GeoIPDB::expand_network(&block.network);
 
-                let block = Arc::new(block);
-
                 (block, networks)
             })
             .for_each(|(block, networks)| {
                 networks.iter()
                     .for_each(|network| {
-                        let geo_ips = blocks.entry(*network).or_insert(Vec::new());
-                        geo_ips.push(Arc::clone(&block));
+                        let blocks = blocks.entry(*network).or_insert(Vec::new());
+                        blocks.push(block.clone());
                     });
             });
 
@@ -100,14 +97,14 @@ impl GeoIPDB {
         }
     }
 
-    pub fn resolve(&self, ip_address: &str) -> Option<&Arc<Block>> {
+    pub fn resolve(&self, ip_address: &str) -> Option<&Block> {
         let candidates = self.blocks.get(&GeoIPDB::ip_to_map_key(ip_address));
         let ip_address = IPAddress::parse(ip_address).unwrap();
 
         candidates.and_then(|candidates| {
             candidates.iter()
-                .find(|geo_ip| {
-                    IPAddress::parse(geo_ip.network.as_str()).unwrap().includes(&ip_address)
+                .find(|block| {
+                    IPAddress::parse(block.network.as_str()).unwrap().includes(&ip_address)
                 })
         })
     }

@@ -29,7 +29,7 @@ struct RawBlock {
     pub longitude: Option<f32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub network: String,
     pub geoname_id: u32,
