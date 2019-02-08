@@ -38,7 +38,7 @@ pub struct Block {
     pub longitude: f32,
 }
 
-pub fn parse_blocks_csv<'b, R: io::Read>(source: R) -> impl Iterator<Item=Block> {
+pub fn parse_blocks_csv<R: io::Read>(source: R) -> impl Iterator<Item=Block> {
     let reader = Reader::from_reader(source);
 
     reader.into_deserialize()
@@ -74,7 +74,7 @@ pub struct Location {
     pub timezone: String,
 }
 
-pub fn parse_locations_csv<'b, R: io::Read>(source: R) -> impl Iterator<Item=Location> {
+pub fn parse_locations_csv<R: io::Read>(source: R) -> impl Iterator<Item=Location> {
     let reader = Reader::from_reader(source);
 
     reader.into_deserialize()
@@ -98,10 +98,10 @@ network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,
 
         let block = blocks.get(0).unwrap();
         assert_eq!("1.0.0.0/24", block.network);
-        assert_eq!(2077456, block.geoname_id.unwrap());
+        assert_eq!(2077456, block.geoname_id);
         assert_eq!("", block.postal_code);
-        assert_eq!(-33.4940, block.latitude.unwrap());
-        assert_eq!(143.2104, block.longitude.unwrap());
+        assert_eq!(-33.4940, block.latitude);
+        assert_eq!(143.2104, block.longitude);
     }
 
     #[test]
