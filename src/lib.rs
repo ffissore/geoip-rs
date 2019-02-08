@@ -17,9 +17,10 @@ extern crate serde_derive;
 
 use std::collections::HashMap;
 use std::fs::File;
+use std::net::Ipv4Addr;
 use std::path::Path;
 
-use ipaddress::IPAddress;
+use ipnet::Ipv4Net;
 use log::info;
 
 use crate::datasets::{Block, Location};
@@ -33,33 +34,34 @@ pub struct GeoIPDB {
 }
 
 impl GeoIPDB {
-    fn expand_network(network: &str) -> Vec<u32> {
-        let netmask = u8::from_str_radix(network.split("/").last().unwrap(), 10).unwrap();
+    fn expand_network(network: &Ipv4Net) -> Vec<u32> {
+        let prefix = network.prefix_len();
 
         let expanded_networks;
-        if netmask < 16 {
-            expanded_networks = IPAddress::parse(network).unwrap()
-                .subnet(16).unwrap()
-                .iter()
-                .map(|network| GeoIPDB::ip_to_map_key(&network.to_string()))
+        if prefix < 16 {
+            expanded_networks = network.subnets(16).unwrap()
+                .map(|network| GeoIPDB::ipnet_to_map_key(&network))
                 .collect();
         } else {
-            expanded_networks = vec![GeoIPDB::ip_to_map_key(network)];
+            expanded_networks = vec![GeoIPDB::ipnet_to_map_key(network)];
         }
 
         expanded_networks
     }
 
-    fn ip_to_map_key(ip_address: &str) -> u32 {
-        ip_address
-            .split(".")
-            .take(2)
-            .map(|part| u32::from_str_radix(part, 10).unwrap())
+    fn ipnet_to_map_key(ip_address: &Ipv4Net) -> u32 {
+        GeoIPDB::ipaddr_to_map_key(&ip_address.addr())
+    }
+
+    fn ipaddr_to_map_key(ip_address: &Ipv4Addr) -> u32 {
+        ip_address.octets()[0..2].iter()
+            .map(|n| u32::from(*n))
             .scan(1_000, |state, value| {
                 let res = *state * value;
                 *state = *state / 1000;
                 Some(res)
             })
+            .map(|n| u32::from(n))
             .sum()
     }
 
@@ -98,13 +100,13 @@ impl GeoIPDB {
     }
 
     pub fn resolve(&self, ip_address: &str) -> Option<&Block> {
-        let candidates = self.blocks.get(&GeoIPDB::ip_to_map_key(ip_address));
-        let ip_address = IPAddress::parse(ip_address).unwrap();
+        let ip_address = ip_address.parse::<Ipv4Addr>().unwrap();
+        let candidates = self.blocks.get(&GeoIPDB::ipaddr_to_map_key(&ip_address));
 
         candidates.and_then(|candidates| {
             candidates.iter()
                 .find(|block| {
-                    IPAddress::parse(block.network.as_str()).unwrap().includes(&ip_address)
+                    block.network.contains(&ip_address)
                 })
         })
     }
@@ -116,25 +118,22 @@ impl GeoIPDB {
 
 #[cfg(test)]
 mod tests {
-    use ipaddress::IPAddress;
-
     use super::*;
 
     #[test]
     #[ignore]
     fn ipaddress_expansion() {
-        let ip1 = IPAddress::parse("172.16.0.0/26").unwrap();
-        assert_eq!(true, ip1.is_network());
-        ip1.each(|ip| println!("{:?}", ip));
-        let ip1 = IPAddress::parse("172.16.0.128/26").unwrap();
-        assert_eq!(true, ip1.is_network());
-        ip1.each(|ip| println!("{:?}", ip));
+        let ip1 = "172.16.0.0/26".parse::<Ipv4Net>().unwrap();
+        ip1.subnets(16).unwrap().for_each(|ip| println!("{:?}", ip));
+        let ip1 = "172.16.0.128/26".parse::<Ipv4Net>().unwrap();
+        ip1.subnets(16).unwrap().for_each(|ip| println!("{:?}", ip));
     }
 
     #[test]
     fn ip_to_number() {
-        assert_eq!(255255, GeoIPDB::ip_to_map_key("255.255.255.12"));
-        assert_eq!(1000, GeoIPDB::ip_to_map_key("1.0.0.1"));
-        assert_eq!(81030, GeoIPDB::ip_to_map_key("81.30.9.30"));
+        assert_eq!(255255, GeoIPDB::ipnet_to_map_key(&"255.255.255.0/24".parse::<Ipv4Net>().unwrap()));
+        assert_eq!(255255, GeoIPDB::ipaddr_to_map_key(&"255.255.255.12".parse::<Ipv4Addr>().unwrap()));
+        assert_eq!(1000, GeoIPDB::ipaddr_to_map_key(&"1.0.0.1".parse::<Ipv4Addr>().unwrap()));
+        assert_eq!(81030, GeoIPDB::ipaddr_to_map_key(&"81.30.9.30".parse::<Ipv4Addr>().unwrap()));
     }
 }

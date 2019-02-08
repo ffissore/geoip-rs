@@ -9,7 +9,7 @@ license = "Apache-2.0"
 [dependencies]
 iron = "0.6.*"
 urlencoded = "0.6.*"
-ipaddress = "0.1.2"
+ipnet = "2.0.0"
 csv = "1"
 serde = "1"
 serde_derive = "1"

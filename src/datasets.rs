@@ -17,6 +17,7 @@ extern crate csv;
 use std::io;
 
 use csv::Reader;
+use ipnet::Ipv4Net;
 
 use self::csv::Error;
 
@@ -31,7 +32,7 @@ struct RawBlock {
 
 #[derive(Debug, Clone)]
 pub struct Block {
-    pub network: String,
+    pub network: Ipv4Net,
     pub geoname_id: u32,
     pub postal_code: String,
     pub latitude: f32,
@@ -45,7 +46,7 @@ pub fn parse_blocks_csv<R: io::Read>(source: R) -> impl Iterator<Item=Block> {
         .map(|result: Result<RawBlock, Error>| result.unwrap())
         .filter(|record| record.geoname_id.is_some() && record.latitude.is_some() && record.longitude.is_some())
         .map(|rawblock| Block {
-            network: rawblock.network,
+            network: rawblock.network.parse::<Ipv4Net>().unwrap(),
             geoname_id: rawblock.geoname_id.unwrap(),
             postal_code: rawblock.postal_code,
             latitude: rawblock.latitude.unwrap(),
@@ -97,7 +98,7 @@ network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,
         assert_eq!(2, blocks.len());
 
         let block = blocks.get(0).unwrap();
-        assert_eq!("1.0.0.0/24", block.network);
+        assert_eq!("1.0.0.0/24", block.network.to_string());
         assert_eq!(2077456, block.geoname_id);
         assert_eq!("", block.postal_code);
         assert_eq!(-33.4940, block.latitude);
