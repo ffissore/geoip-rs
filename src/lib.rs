@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! geoip_rs is a library used to load geoip database provided by maxmind and associate ip addresses
+//! with geographical information.
+//!
+//! In order to be fast, the whole dataset is loaded into memory: it consumes ~300 MB of RAM. This
+//! allows the http server of the binary crate to serve ~50K requests/sec on an 8 cores Intel i7
 #[macro_use]
 extern crate serde_derive;
 
@@ -27,6 +32,8 @@ use crate::datasets::{Block, Location};
 
 mod datasets;
 
+/// GeoIPDB is the struct holding both blocks (ip networks and their coordinates) and locations
+/// (contintent, country, etc corresponding to some coordinates)
 #[derive(Debug)]
 pub struct GeoIPDB {
     locations: HashMap<u32, Location>,
@@ -34,6 +41,8 @@ pub struct GeoIPDB {
 }
 
 impl GeoIPDB {
+    /// Given a V4 ip network with a prefix lower than 16, it will expand it the corresponding networks with prefix 16
+    /// If instead the given network has a prefix greater or equal 16, no expansion occurs
     fn expand_network(network: &Ipv4Net) -> Vec<u32> {
         let prefix = network.prefix_len();
 
@@ -49,10 +58,12 @@ impl GeoIPDB {
         expanded_networks
     }
 
+    /// Translates a V4 ip network into a u32 suitable to be used as key in the hashmap held by GeoIPDB
     fn ipnet_to_map_key(ip_address: &Ipv4Net) -> u32 {
         GeoIPDB::ipaddr_to_map_key(&ip_address.addr())
     }
 
+    /// Translates a V4 ip address into a u32 suitable to be used as key in the hashmap held by GeoIPDB
     fn ipaddr_to_map_key(ip_address: &Ipv4Addr) -> u32 {
         ip_address.octets()[0..2].iter()
             .map(|n| u32::from(*n))
@@ -65,6 +76,7 @@ impl GeoIPDB {
             .sum()
     }
 
+    /// Creates a new GeoIPDB by parsing and loading the contents of a blocks CSV file and a location CSV file
     pub fn new(blocks_csv_file: &str, locations_csv_file: &str) -> Self {
         info!("Loading IPV4 networks dataset from {}...", blocks_csv_file);
         let blocks_csv_file = File::open(Path::new(blocks_csv_file)).unwrap();
@@ -99,6 +111,7 @@ impl GeoIPDB {
         }
     }
 
+    /// Looks for the given ip address in the db, returning the corresponding block, if any
     pub fn resolve(&self, ip_address: &str) -> Option<&Block> {
         let ip_address = ip_address.parse::<Ipv4Addr>().unwrap();
         let candidates = self.blocks.get(&GeoIPDB::ipaddr_to_map_key(&ip_address));
@@ -111,6 +124,7 @@ impl GeoIPDB {
         })
     }
 
+    /// Returns the location corresponding to the given id
     pub fn get_location(&self, geoname_id: u32) -> &Location {
         self.locations.get(&geoname_id).unwrap()
     }

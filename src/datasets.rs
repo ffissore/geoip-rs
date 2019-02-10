@@ -21,6 +21,7 @@ use ipnet::Ipv4Net;
 
 use self::csv::Error;
 
+/// Temporary struct used to parse the content of the blocks file
 #[derive(Debug, Deserialize)]
 struct RawBlock {
     pub network: String,
@@ -30,6 +31,7 @@ struct RawBlock {
     pub longitude: Option<f32>,
 }
 
+/// IP addresses are assigned in blocks. Each block has a network (a range of ip addresses) and geolocation information
 #[derive(Debug, Clone)]
 pub struct Block {
     pub network: Ipv4Net,
@@ -39,6 +41,7 @@ pub struct Block {
     pub longitude: f32,
 }
 
+/// Parses the blocks CSV file, returns an Iterator over its lines
 pub fn parse_blocks_csv<R: io::Read>(source: R) -> impl Iterator<Item=Block> {
     let reader = Reader::from_reader(source);
 
@@ -54,6 +57,7 @@ pub fn parse_blocks_csv<R: io::Read>(source: R) -> impl Iterator<Item=Block> {
         })
 }
 
+/// A location associates a geoname_id to human readable information about continent, country, region, etc. Each block is associated with one location
 #[derive(Debug, Deserialize)]
 pub struct Location {
     pub geoname_id: u32,
@@ -75,6 +79,7 @@ pub struct Location {
     pub timezone: String,
 }
 
+/// Parses the locations CSV file, returns an Iterator over its lines
 pub fn parse_locations_csv<R: io::Read>(source: R) -> impl Iterator<Item=Location> {
     let reader = Reader::from_reader(source);
 
