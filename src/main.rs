@@ -111,6 +111,12 @@ impl ResolveIPHandler {
             })
     }
 
+    fn get_header_value(req: &Request, header_name: &str) -> Option<String> {
+        req.headers.iter()
+            .find(|header| header.name().eq(header_name))
+            .map(|header| header.value_string())
+    }
+
     fn ip_address_to_resolve(req: &mut Request) -> String {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$").unwrap();
@@ -118,6 +124,7 @@ impl ResolveIPHandler {
 
         ResolveIPHandler::get_query_param(req, "ip")
             .filter(|ipaddress| RE.is_match(ipaddress))
+            .or_else(|| ResolveIPHandler::get_header_value(req, "X-Real-IP"))
             .unwrap_or(req.remote_addr.ip().to_string())
     }
 }
@@ -150,7 +157,6 @@ impl Handler for ResolveIPHandler {
             .or(serde_json::to_string(&NonResolvedIPResponse { ip_address: &ip_address }).ok())
             .unwrap();
 
-        //TODO a candidate for AfterHandler, once I know how that works
         let res = ResolveIPHandler::get_query_param(req, "callback")
             .map(|callback| {
                 let mut res = Response::with((status::Ok, format!("{}({})", callback, geoip)));
@@ -182,6 +188,6 @@ fn main() {
     let mut chain = Chain::new(resolve_handler);
     chain.link_around(cors_middleware);
 
-    let _server = Iron::new(chain).http("localhost:3000").unwrap();
+    let _server = Iron::new(chain).http("127.0.0.1:3000").unwrap();
     println!("On 3000");
 }
