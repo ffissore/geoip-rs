@@ -1,13 +1,14 @@
 [package]
 name = "geoip-rs"
 description = "geoip-rs provides geographical information about the calling or the specified IP address"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Federico Fissore <federico@fissore.org>"]
 edition = "2018"
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/ffissore/geoip-rs"
 keywords = ["geoip", "maxmind", "geolocation"]
+homepage = "https://geoip.rs/"
 
 [dependencies]
 iron = "0.6.*"
