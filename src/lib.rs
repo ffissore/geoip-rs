@@ -21,12 +21,10 @@
 extern crate serde_derive;
 
 use std::collections::HashMap;
-use std::fs::File;
+use std::io::Read;
 use std::net::Ipv4Addr;
-use std::path::Path;
 
 use ipnet::Ipv4Net;
-use log::info;
 
 use crate::datasets::{Block, Location};
 
@@ -77,9 +75,7 @@ impl GeoIPDB {
     }
 
     /// Creates a new GeoIPDB by parsing and loading the contents of a blocks CSV file and a location CSV file
-    pub fn new(blocks_csv_file: &str, locations_csv_file: &str) -> Self {
-        info!("Loading IPV4 networks dataset from {}...", blocks_csv_file);
-        let blocks_csv_file = File::open(Path::new(blocks_csv_file)).unwrap();
+    pub fn new<R: Read + Sized>(blocks_csv_file: R, locations_csv_file: R) -> Self {
         let mut blocks = HashMap::new();
 
         datasets::parse_blocks_csv(blocks_csv_file)
@@ -96,8 +92,6 @@ impl GeoIPDB {
                     });
             });
 
-        info!("Loading IP location dataset from {}...", locations_csv_file);
-        let locations_csv_file = File::open(Path::new(locations_csv_file)).unwrap();
         let mut locations = HashMap::new();
 
         datasets::parse_locations_csv(locations_csv_file)
@@ -149,5 +143,45 @@ mod tests {
         assert_eq!(255255, GeoIPDB::ipaddr_to_map_key(&"255.255.255.12".parse::<Ipv4Addr>().unwrap()));
         assert_eq!(1000, GeoIPDB::ipaddr_to_map_key(&"1.0.0.1".parse::<Ipv4Addr>().unwrap()));
         assert_eq!(81030, GeoIPDB::ipaddr_to_map_key(&"81.30.9.30".parse::<Ipv4Addr>().unwrap()));
+    }
+
+    #[test]
+    fn can_resolve_ip() {
+        let blocks = "network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider,postal_code,latitude,longitude,accuracy_radius
+1.0.0.0/24,2077456,2077456,,0,0,,-33.4940,143.2104,1000
+1.0.1.0/24,1811017,1814991,,0,0,,24.4798,118.0819,50
+1.3.0.0/16,1809935,1814991,,0,0,,23.1167,113.2500,50";
+
+        let locations = "geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,subdivision_1_iso_code,subdivision_1_name,subdivision_2_iso_code,subdivision_2_name,city_name,metro_code,time_zone,is_in_european_union
+1809935,en,AS,Asia,CN,China,GD,Guangdong,,,,,Asia/Shanghai,0
+49518,en,AF,Africa,RW,Rwanda,,,,,,,Africa/Kigali,0";
+
+        let geoip_db = GeoIPDB::new(blocks.as_bytes(), locations.as_bytes());
+
+        let block = geoip_db.resolve("1.3.4.2").unwrap();
+        assert_eq!("1.3.0.0/16", block.network.to_string());
+        assert_eq!(1809935, block.geoname_id);
+        assert_eq!("", block.postal_code);
+        assert_eq!(23.1167, block.latitude);
+        assert_eq!(113.25, block.longitude);
+
+        let location = geoip_db.get_location(block.geoname_id);
+        assert_eq!(1809935, location.geoname_id);
+        assert_eq!("AS", location.continent_code);
+        assert_eq!("Asia", location.continent_name);
+        assert_eq!("CN", location.country_code);
+        assert_eq!("China", location.country_name);
+        assert_eq!("GD", location.region_code);
+        assert_eq!("Guangdong", location.region_name);
+        assert_eq!("", location.province_code);
+        assert_eq!("", location.province_name);
+        assert_eq!("", location.city_name);
+        assert_eq!("Asia/Shanghai", location.timezone);
+    }
+
+    #[test]
+    fn cannot_resolve_ip() {
+        let geoip_db = GeoIPDB::new("".as_bytes(), "".as_bytes());
+        assert_eq!(true, geoip_db.resolve("1.2.3.4").is_none());
     }
 }

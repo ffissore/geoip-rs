@@ -14,7 +14,7 @@
 
 extern crate csv;
 
-use std::io;
+use std::io::Read;
 
 use csv::Reader;
 use ipnet::Ipv4Net;
@@ -42,7 +42,7 @@ pub struct Block {
 }
 
 /// Parses the blocks CSV file, returns an Iterator over its lines
-pub fn parse_blocks_csv<R: io::Read>(source: R) -> impl Iterator<Item=Block> {
+pub fn parse_blocks_csv<R: Read + Sized>(source: R) -> impl Iterator<Item=Block> {
     let reader = Reader::from_reader(source);
 
     reader.into_deserialize()
@@ -80,7 +80,7 @@ pub struct Location {
 }
 
 /// Parses the locations CSV file, returns an Iterator over its lines
-pub fn parse_locations_csv<R: io::Read>(source: R) -> impl Iterator<Item=Location> {
+pub fn parse_locations_csv<R: Read + Sized>(source: R) -> impl Iterator<Item=Location> {
     let reader = Reader::from_reader(source);
 
     reader.into_deserialize()
@@ -93,8 +93,7 @@ mod tests {
 
     #[test]
     fn can_read_blocks_csv() {
-        let data = "
-network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider,postal_code,latitude,longitude,accuracy_radius
+        let data = "network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,is_anonymous_proxy,is_satellite_provider,postal_code,latitude,longitude,accuracy_radius
 1.0.0.0/24,2077456,2077456,,0,0,,-33.4940,143.2104,1000
 1.0.1.0/24,1811017,1814991,,0,0,,24.4798,118.0819,50
 5.145.149.142/32,,6252001,,0,1,,,,";
@@ -112,8 +111,7 @@ network,geoname_id,registered_country_geoname_id,represented_country_geoname_id,
 
     #[test]
     fn can_read_locations_csv() {
-        let data = "
-geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,subdivision_1_iso_code,subdivision_1_name,subdivision_2_iso_code,subdivision_2_name,city_name,metro_code,time_zone,is_in_european_union
+        let data = "geoname_id,locale_code,continent_code,continent_name,country_iso_code,country_name,subdivision_1_iso_code,subdivision_1_name,subdivision_2_iso_code,subdivision_2_name,city_name,metro_code,time_zone,is_in_european_union
 5819,en,EU,Europe,CY,Cyprus,02,Limassol,,,Souni,,Asia/Nicosia,1
 49518,en,AF,Africa,RW,Rwanda,,,,,,,Africa/Kigali,0
 49747,en,AF,Africa,SO,Somalia,BK,Bakool,,,Oddur,,Africa/Mogadishu,0
