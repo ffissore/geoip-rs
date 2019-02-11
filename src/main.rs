@@ -24,10 +24,10 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
-use iron::Handler;
 use iron::headers::ContentType;
 use iron::prelude::*;
 use iron::status;
+use iron::Handler;
 use iron_cors::CorsMiddleware;
 use log::info;
 use log::LevelFilter;
@@ -102,20 +102,16 @@ struct ResolveIPHandler {
 
 impl ResolveIPHandler {
     fn get_query_param(req: &mut Request, param: &str) -> Option<String> {
-        req.get_ref::<UrlEncodedQuery>().ok()
-            .and_then(|query_params| {
-                query_params.get(param)
-            })
-            .and_then(|params| {
-                params.get(0)
-            })
-            .map(|param| {
-                param.to_string()
-            })
+        req.get_ref::<UrlEncodedQuery>()
+            .ok()
+            .and_then(|query_params| query_params.get(param))
+            .and_then(|params| params.get(0))
+            .map(|param| param.to_string())
     }
 
     fn get_header_value(req: &Request, header_name: &str) -> Option<String> {
-        req.headers.iter()
+        req.headers
+            .iter()
             .find(|header| header.name().eq(header_name))
             .map(|header| header.value_string())
     }
@@ -136,7 +132,9 @@ impl Handler for ResolveIPHandler {
     fn handle(&self, req: &mut Request) -> IronResult<Response> {
         let ip_address = ResolveIPHandler::ip_address_to_resolve(req);
 
-        let geoip = self.db.resolve(&ip_address)
+        let geoip = self
+            .db
+            .resolve(&ip_address)
             .map(|block| {
                 let location = self.db.get_location(block.geoname_id);
                 ResolvedIPResponse {
@@ -157,13 +155,17 @@ impl Handler for ResolveIPHandler {
                 }
             })
             .and_then(|geoip| serde_json::to_string(&geoip).ok())
-            .or(serde_json::to_string(&NonResolvedIPResponse { ip_address: &ip_address }).ok())
+            .or(serde_json::to_string(&NonResolvedIPResponse {
+                ip_address: &ip_address,
+            })
+            .ok())
             .unwrap();
 
         let res = match ResolveIPHandler::get_query_param(req, "callback") {
             Some(callback) => {
                 let mut res = Response::with((status::Ok, format!("{}({})", callback, geoip)));
-                res.headers.set(ContentType("application/javascript".parse().unwrap()));
+                res.headers
+                    .set(ContentType("application/javascript".parse().unwrap()));
                 res
             }
             None => {
@@ -182,16 +184,17 @@ fn main() {
 
     let dataset_paths = DatasetFiles::new();
 
-    info!("Loading datasets: IPV4 networks dataset from {} and locations from {}", &dataset_paths.blocks, &dataset_paths.locations);
+    info!(
+        "Loading datasets: IPV4 networks dataset from {} and locations from {}",
+        &dataset_paths.blocks, &dataset_paths.locations
+    );
 
     let geoipdb = GeoIPDB::new(
         File::open(Path::new(&dataset_paths.blocks)).unwrap(),
         File::open(Path::new(&dataset_paths.locations)).unwrap(),
     );
 
-    let mut chain = Chain::new(ResolveIPHandler {
-        db: geoipdb,
-    });
+    let mut chain = Chain::new(ResolveIPHandler { db: geoipdb });
     chain.link_around(CorsMiddleware::with_allow_any());
 
     let _server = Iron::new(chain).http("127.0.0.1:3000").unwrap();

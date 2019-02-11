@@ -42,12 +42,15 @@ pub struct Block {
 }
 
 /// Parses the blocks CSV file, returns an Iterator over its lines
-pub fn parse_blocks_csv<R: Read + Sized>(source: R) -> impl Iterator<Item=Block> {
+pub fn parse_blocks_csv<R: Read + Sized>(source: R) -> impl Iterator<Item = Block> {
     let reader = Reader::from_reader(source);
 
-    reader.into_deserialize()
+    reader
+        .into_deserialize()
         .map(|result: Result<RawBlock, Error>| result.unwrap())
-        .filter(|record| record.geoname_id.is_some() && record.latitude.is_some() && record.longitude.is_some())
+        .filter(|record| {
+            record.geoname_id.is_some() && record.latitude.is_some() && record.longitude.is_some()
+        })
         .map(|rawblock| Block {
             network: rawblock.network.parse::<Ipv4Net>().unwrap(),
             geoname_id: rawblock.geoname_id.unwrap(),
@@ -80,10 +83,11 @@ pub struct Location {
 }
 
 /// Parses the locations CSV file, returns an Iterator over its lines
-pub fn parse_locations_csv<R: Read + Sized>(source: R) -> impl Iterator<Item=Location> {
+pub fn parse_locations_csv<R: Read + Sized>(source: R) -> impl Iterator<Item = Location> {
     let reader = Reader::from_reader(source);
 
-    reader.into_deserialize()
+    reader
+        .into_deserialize()
         .map(|record: Result<Location, Error>| record.unwrap())
 }
 

@@ -46,7 +46,9 @@ impl GeoIPDB {
 
         let expanded_networks;
         if prefix < 16 {
-            expanded_networks = network.subnets(16).unwrap()
+            expanded_networks = network
+                .subnets(16)
+                .unwrap()
                 .map(|network| GeoIPDB::ipnet_to_map_key(&network))
                 .collect();
         } else {
@@ -63,7 +65,8 @@ impl GeoIPDB {
 
     /// Translates a V4 ip address into a u32 suitable to be used as key in the hashmap held by GeoIPDB
     fn ipaddr_to_map_key(ip_address: &Ipv4Addr) -> u32 {
-        ip_address.octets()[0..2].iter()
+        ip_address.octets()[0..2]
+            .iter()
             .map(|n| u32::from(*n))
             .scan(1_000, |state, value| {
                 let res = *state * value;
@@ -85,24 +88,19 @@ impl GeoIPDB {
                 (block, networks)
             })
             .for_each(|(block, networks)| {
-                networks.iter()
-                    .for_each(|network| {
-                        let blocks = blocks.entry(*network).or_insert(Vec::new());
-                        blocks.push(block.clone());
-                    });
+                networks.iter().for_each(|network| {
+                    let blocks = blocks.entry(*network).or_insert(Vec::new());
+                    blocks.push(block.clone());
+                });
             });
 
         let mut locations = HashMap::new();
 
-        datasets::parse_locations_csv(locations_csv_file)
-            .for_each(|location| {
-                locations.insert(location.geoname_id, location);
-            });
+        datasets::parse_locations_csv(locations_csv_file).for_each(|location| {
+            locations.insert(location.geoname_id, location);
+        });
 
-        GeoIPDB {
-            locations,
-            blocks,
-        }
+        GeoIPDB { locations, blocks }
     }
 
     /// Looks for the given ip address in the db, returning the corresponding block, if any
@@ -111,10 +109,9 @@ impl GeoIPDB {
         let candidates = self.blocks.get(&GeoIPDB::ipaddr_to_map_key(&ip_address));
 
         candidates.and_then(|candidates| {
-            candidates.iter()
-                .find(|block| {
-                    block.network.contains(&ip_address)
-                })
+            candidates
+                .iter()
+                .find(|block| block.network.contains(&ip_address))
         })
     }
 
@@ -139,10 +136,22 @@ mod tests {
 
     #[test]
     fn ip_to_number() {
-        assert_eq!(255255, GeoIPDB::ipnet_to_map_key(&"255.255.255.0/24".parse::<Ipv4Net>().unwrap()));
-        assert_eq!(255255, GeoIPDB::ipaddr_to_map_key(&"255.255.255.12".parse::<Ipv4Addr>().unwrap()));
-        assert_eq!(1000, GeoIPDB::ipaddr_to_map_key(&"1.0.0.1".parse::<Ipv4Addr>().unwrap()));
-        assert_eq!(81030, GeoIPDB::ipaddr_to_map_key(&"81.30.9.30".parse::<Ipv4Addr>().unwrap()));
+        assert_eq!(
+            255255,
+            GeoIPDB::ipnet_to_map_key(&"255.255.255.0/24".parse::<Ipv4Net>().unwrap())
+        );
+        assert_eq!(
+            255255,
+            GeoIPDB::ipaddr_to_map_key(&"255.255.255.12".parse::<Ipv4Addr>().unwrap())
+        );
+        assert_eq!(
+            1000,
+            GeoIPDB::ipaddr_to_map_key(&"1.0.0.1".parse::<Ipv4Addr>().unwrap())
+        );
+        assert_eq!(
+            81030,
+            GeoIPDB::ipaddr_to_map_key(&"81.30.9.30".parse::<Ipv4Addr>().unwrap())
+        );
     }
 
     #[test]
