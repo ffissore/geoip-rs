@@ -11,6 +11,27 @@ When called with the `ip` query param, it resolves the specified IP address. For
 
 If the provided IP address is invalid, it falls back to the calling IP address.
 
+### Example response
+
+```json
+{
+  "ip_address": "46.51.179.90",
+  "latitude": 53.3331,
+  "longitude": -6.2489,
+  "postal_code": "D02",
+  "continent_code": "EU",
+  "continent_name": "Europe",
+  "country_code": "IE",
+  "country_name": "Ireland",
+  "region_code": "L",
+  "region_name": "Leinster",
+  "province_code": "",
+  "province_name": "",
+  "city_name": "Dublin",
+  "timezone": "Europe/Dublin"
+}
+```
+
 ### Speed
 
 On an 8 cores Intel i7, geoip.rs can serve between ~20K and ~50K requests/sec, depending on the requested ip address.
