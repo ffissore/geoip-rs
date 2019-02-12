@@ -11,6 +11,10 @@ When called with the `ip` query param, it resolves the specified IP address. For
 
 If the provided IP address is invalid, it falls back to the calling IP address.
 
+### Speed
+
+On an 8 cores Intel i7, geoip.rs can serve between ~20K and ~50K requests/sec, depending on the requested ip address.
+
 ### Running
 
 Once built with `cargo build --release`, run it with `./target/release/geoip-rs`. By default the english location dataset is loaded.
