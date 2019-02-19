@@ -48,7 +48,7 @@ On an 8 cores Intel i7, geoip.rs can serve ~35K requests/sec.
  
 ### Dataset
 
-geoip-rs uses the free dataset provided by [maxmind](https://www.maxmind.com). They are not bundled: you have to download it separately.
+geoip-rs uses the free dataset provided by [maxmind](https://www.maxmind.com). It's not bundled: you have to download it separately.
 
 Download "GeoLite2 City" dataset in binary format from [here](https://dev.maxmind.com/geoip/geoip2/geolite2/#Downloads) and unzip it.
 
