@@ -3,7 +3,7 @@
 [![Latest version](https://img.shields.io/crates/v/geoip-rs.svg)](https://crates.io/crates/geoip-rs)
 [![Build Status](https://travis-ci.com/ffissore/geoip-rs.svg?branch=master)](https://travis-ci.com/ffissore/geoip-rs)
 
-geoip-rs is a geoip service: it provides geographical information about the calling or the specified IP address.
+geoip-rs is a geoip service: it provides geographical information about the calling or the specified IP address. It supports both IPV4 and IPV6.
 
 When called with no query params, it resolves the calling IP address. For example: https://api.geoip.rs
 
@@ -11,8 +11,11 @@ When called with the `ip` query param, it resolves the specified IP address. For
 
 If the provided IP address is invalid, it falls back to the calling IP address.
 
+By default, responses will be in english. An optional `lang` query param can be provided: if a translation is available, returned data will be in that language. Current list includes: `de`, `en`, `es`, `fr`, `ja`, `pt-BR`, `ru`, `zh-CH`.
+
 ### Example response
 
+Valid ip address:
 ```json
 {
   "ip_address": "46.51.179.90",
@@ -32,30 +35,44 @@ If the provided IP address is invalid, it falls back to the calling IP address.
 }
 ```
 
+Not found (private) ip address:
+```json
+{
+  "ip_address": "127.0.0.1"
+}
+```
+
 ### Speed
 
-On an 8 cores Intel i7, geoip.rs can serve between ~20K and ~50K requests/sec, depending on the requested ip address.
+On an 8 cores Intel i7, geoip.rs can serve ~35K requests/sec.
+ 
+### Dataset
+
+geoip-rs uses the free dataset provided by [maxmind](https://www.maxmind.com). They are not bundled: you have to download it separately.
+
+Download "GeoLite2 City" dataset in binary format from [here](https://dev.maxmind.com/geoip/geoip2/geolite2/#Downloads) and unzip it.
 
 ### Running
 
-Once built with `cargo build --release`, run it with `./target/release/geoip-rs`. By default the english location dataset is loaded.
+Install geoip.rs with `cargo install geoip-rs`. If you don't know what `cargo` is, [read the tutorial](https://doc.rust-lang.org/cargo/getting-started/installation.html). 
 
-You can specify different datasets as command line arguments, for example
+You can specify the dataset location on the command line
 ```bash
-./target/release/geoip-rs data/GeoLite2-City-Blocks-IPv4.csv data/GeoLite2-City-Locations-ja.csv
+geoip-rs /path/to/GeoLite2-City.mmdb
 ```
-or environment variables, for example
+or via environment variable
 ```bash
-export GEOIP_RS_BLOCKS_FILE_PATH=./data/GeoLite2-City-Blocks-IPv4.csv
-export GEOIP_RS_LOCATIONS_FILE_PATH=./data/GeoLite2-City-Locations-ja.csv
-./target/release/geoip-rs
+export GEOIP_RS_DB_PATH=/path/to/GeoLite2-City.mmdb
+geoip-rs
 ```
- 
-### Datasets
 
-geoip-rs uses the free datasets provided by [maxmind](https://www.maxmind.com). They are not bundled: you have to download them separately.
-
-Download "GeoLite2 City" dataset in CSV format from [here](https://dev.maxmind.com/geoip/geoip2/geolite2/#Downloads) and unzip it into the `data` folder.
+You can also customize the host and port geoip.rs will listen to
+```bash
+export GEOIP_RS_DB_PATH=/path/to/GeoLite2-City.mmdb
+export GEOIP_RS_HOST=192.168.0.1
+export GEOIP_RS_PORT=8080
+geoip-rs
+```
 
 ### License
 

@@ -1,7 +1,7 @@
 [package]
 name = "geoip-rs"
 description = "geoip-rs provides geographical information about the calling or the specified IP address"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Federico Fissore <federico@fissore.org>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -13,13 +13,9 @@ homepage = "https://geoip.rs/"
 [dependencies]
 iron = "0.6.*"
 urlencoded = "0.6.*"
-ipnet = "2.0.0"
-csv = "1"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-regex = "1"
-lazy_static = "1.2.0"
-log = "0.4.6"
-simple-logging = "2.0.2"
 iron-cors = "0.8.0"
+maxminddb = { version = "0.13.0", features = ["mmap"] }
+memmap = "0.7.0"

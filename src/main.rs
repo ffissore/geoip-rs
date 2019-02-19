@@ -14,64 +14,23 @@
 
 extern crate iron;
 #[macro_use]
-extern crate lazy_static;
-extern crate regex;
-#[macro_use]
 extern crate serde_derive;
 
 use std::env;
-use std::fs::File;
-use std::io;
-use std::path::Path;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
 
 use iron::headers::ContentType;
 use iron::prelude::*;
 use iron::status;
 use iron::Handler;
 use iron_cors::CorsMiddleware;
-use log::info;
-use log::LevelFilter;
-use regex::Regex;
+use maxminddb::geoip2::City;
+use maxminddb::MaxMindDBError;
+use maxminddb::Reader;
+use memmap::Mmap;
 use serde_json;
 use urlencoded::UrlEncodedQuery;
-
-use geoip_rs::GeoIPDB;
-
-struct DatasetFiles {
-    blocks: String,
-    locations: String,
-}
-
-impl DatasetFiles {
-    fn new() -> DatasetFiles {
-        let args: Vec<String> = env::args().collect();
-
-        let blocks_file_path_env = env::var("GEOIP_RS_BLOCKS_FILE_PATH");
-        let blocks_file_path;
-        if blocks_file_path_env.is_ok() {
-            blocks_file_path = blocks_file_path_env.unwrap();
-        } else if args.len() > 1 {
-            blocks_file_path = args.get(1).unwrap().to_string();
-        } else {
-            blocks_file_path = String::from("./data/GeoLite2-City-Blocks-IPv4.csv");
-        }
-
-        let locations_file_path_env = env::var("GEOIP_RS_LOCATIONS_FILE_PATH");
-        let locations_file_path;
-        if locations_file_path_env.is_ok() {
-            locations_file_path = locations_file_path_env.unwrap();
-        } else if args.len() > 2 {
-            locations_file_path = args.get(2).unwrap().to_string();
-        } else {
-            locations_file_path = String::from("./data/GeoLite2-City-Locations-en.csv");
-        }
-
-        DatasetFiles {
-            blocks: blocks_file_path,
-            locations: locations_file_path,
-        }
-    }
-}
 
 #[derive(Serialize)]
 struct NonResolvedIPResponse<'a> {
@@ -81,8 +40,8 @@ struct NonResolvedIPResponse<'a> {
 #[derive(Serialize)]
 struct ResolvedIPResponse<'a> {
     pub ip_address: &'a str,
-    pub latitude: f32,
-    pub longitude: f32,
+    pub latitude: &'a f64,
+    pub longitude: &'a f64,
     pub postal_code: &'a str,
     pub continent_code: &'a str,
     pub continent_name: &'a str,
@@ -97,7 +56,7 @@ struct ResolvedIPResponse<'a> {
 }
 
 struct ResolveIPHandler {
-    db: GeoIPDB,
+    db: Reader<Mmap>,
 }
 
 impl ResolveIPHandler {
@@ -117,51 +76,125 @@ impl ResolveIPHandler {
     }
 
     fn ip_address_to_resolve(req: &mut Request) -> String {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$").unwrap();
-        }
-
-        ResolveIPHandler::get_query_param(req, "ip")
-            .filter(|ipaddress| RE.is_match(ipaddress))
-            .or_else(|| ResolveIPHandler::get_header_value(req, "X-Real-IP"))
+        Self::get_query_param(req, "ip")
+            .filter(|ipaddress| {
+                ipaddress.parse::<Ipv4Addr>().is_ok() || ipaddress.parse::<Ipv6Addr>().is_ok()
+            })
+            .or_else(|| Self::get_header_value(req, "X-Real-IP"))
             .unwrap_or(req.remote_addr.ip().to_string())
+    }
+
+    fn get_language(req: &mut Request) -> String {
+        Self::get_query_param(req, "lang").unwrap_or(String::from("en"))
     }
 }
 
 impl Handler for ResolveIPHandler {
     fn handle(&self, req: &mut Request) -> IronResult<Response> {
-        let ip_address = ResolveIPHandler::ip_address_to_resolve(req);
+        let language = Self::get_language(req);
+        let ip_address = Self::ip_address_to_resolve(req);
 
-        let geoip = self
-            .db
-            .resolve(&ip_address)
-            .map(|block| {
-                let location = self.db.get_location(block.geoname_id);
-                ResolvedIPResponse {
+        let lookup: Result<City, MaxMindDBError> = self.db.lookup(ip_address.parse().unwrap());
+        let geoip = match lookup {
+            Ok(geoip) => {
+                let region = geoip
+                    .subdivisions
+                    .as_ref()
+                    .filter(|subdivs| subdivs.len() > 0)
+                    .and_then(|subdivs| subdivs.get(0));
+
+                let province = geoip
+                    .subdivisions
+                    .as_ref()
+                    .filter(|subdivs| subdivs.len() > 1)
+                    .and_then(|subdivs| subdivs.get(1));
+
+                let res = ResolvedIPResponse {
                     ip_address: &ip_address,
-                    latitude: block.latitude,
-                    longitude: block.longitude,
-                    postal_code: &block.postal_code,
-                    continent_code: &location.continent_code,
-                    continent_name: &location.continent_name,
-                    country_code: &location.country_code,
-                    country_name: &location.country_name,
-                    region_code: &location.region_code,
-                    region_name: &location.region_name,
-                    province_code: &location.province_code,
-                    province_name: &location.province_name,
-                    city_name: &location.city_name,
-                    timezone: &location.timezone,
-                }
-            })
-            .and_then(|geoip| serde_json::to_string(&geoip).ok())
-            .or(serde_json::to_string(&NonResolvedIPResponse {
+                    latitude: geoip
+                        .location
+                        .as_ref()
+                        .and_then(|loc| loc.latitude.as_ref())
+                        .unwrap_or(&0.0),
+                    longitude: geoip
+                        .location
+                        .as_ref()
+                        .and_then(|loc| loc.longitude.as_ref())
+                        .unwrap_or(&0.0),
+                    postal_code: geoip
+                        .postal
+                        .as_ref()
+                        .and_then(|postal| postal.code.as_ref())
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                    continent_code: geoip
+                        .continent
+                        .as_ref()
+                        .and_then(|cont| cont.code.as_ref())
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                    continent_name: geoip
+                        .continent
+                        .as_ref()
+                        .and_then(|cont| cont.names.as_ref())
+                        .and_then(|names| names.get(&language))
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                    country_code: geoip
+                        .country
+                        .as_ref()
+                        .and_then(|country| country.iso_code.as_ref())
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                    country_name: geoip
+                        .country
+                        .as_ref()
+                        .and_then(|country| country.names.as_ref())
+                        .and_then(|names| names.get(&language))
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                    region_code: region
+                        .and_then(|subdiv| subdiv.iso_code.as_ref())
+                        .map(String::as_ref)
+                        .unwrap_or(""),
+                    region_name: region
+                        .and_then(|subdiv| subdiv.names.as_ref())
+                        .and_then(|names| names.get(&language))
+                        .map(String::as_ref)
+                        .unwrap_or(""),
+                    province_code: province
+                        .and_then(|subdiv| subdiv.iso_code.as_ref())
+                        .map(String::as_ref)
+                        .unwrap_or(""),
+                    province_name: province
+                        .and_then(|subdiv| subdiv.names.as_ref())
+                        .and_then(|names| names.get(&language))
+                        .map(String::as_ref)
+                        .unwrap_or(""),
+                    city_name: geoip
+                        .city
+                        .as_ref()
+                        .and_then(|city| city.names.as_ref())
+                        .and_then(|names| names.get(&language))
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                    timezone: geoip
+                        .location
+                        .as_ref()
+                        .and_then(|loc| loc.time_zone.as_ref())
+                        .map(String::as_str)
+                        .unwrap_or(""),
+                };
+                serde_json::to_string(&res).ok()
+            }
+            Err(_) => serde_json::to_string(&NonResolvedIPResponse {
                 ip_address: &ip_address,
             })
-            .ok())
-            .unwrap();
+            .ok(),
+        }
+        .unwrap();
 
-        let res = match ResolveIPHandler::get_query_param(req, "callback") {
+        let res = match Self::get_query_param(req, "callback") {
             Some(callback) => {
                 let mut res = Response::with((status::Ok, format!("{}({})", callback, geoip)));
                 res.headers
@@ -179,24 +212,30 @@ impl Handler for ResolveIPHandler {
     }
 }
 
+fn db_file_path() -> String {
+    let db_file_env_var = env::var("GEOIP_RS_DB_PATH");
+    if db_file_env_var.is_ok() {
+        return db_file_env_var.unwrap();
+    }
+
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        return args.get(1).unwrap().to_string();
+    }
+
+    panic!("You must specify the db path, either as a command line argument or as GEOIP_RS_DB_PATH env var");
+}
+
 fn main() {
-    simple_logging::log_to(io::stdout(), LevelFilter::Info);
+    let db_file = db_file_path();
 
-    let dataset_paths = DatasetFiles::new();
+    let db = Reader::open_mmap(db_file).unwrap();
 
-    info!(
-        "Loading datasets: IPV4 networks dataset from {} and locations from {}",
-        &dataset_paths.blocks, &dataset_paths.locations
-    );
-
-    let geoipdb = GeoIPDB::new(
-        File::open(Path::new(&dataset_paths.blocks)).unwrap(),
-        File::open(Path::new(&dataset_paths.locations)).unwrap(),
-    );
-
-    let mut chain = Chain::new(ResolveIPHandler { db: geoipdb });
+    let mut chain = Chain::new(ResolveIPHandler { db });
     chain.link_around(CorsMiddleware::with_allow_any());
 
-    let _server = Iron::new(chain).http("127.0.0.1:3000").unwrap();
-    println!("On 3000");
+    let host = env::var("GEOIP_RS_HOST").unwrap_or(String::from("127.0.0.1"));
+    let port = env::var("GEOIP_RS_PORT").unwrap_or(String::from("3000"));
+    let _server = Iron::new(chain).http(format!("{}:{}", host, port)).unwrap();
+    println!("Listening on {}:{}", host, port);
 }
