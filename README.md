@@ -1,7 +1,7 @@
 # geoip-rs
 
 [![Latest version](https://img.shields.io/crates/v/geoip-rs.svg)](https://crates.io/crates/geoip-rs)
-[![Build Status](https://travis-ci.com/ffissore/geoip-rs.svg?branch=master)](https://travis-ci.com/ffissore/geoip-rs)
+[![Build Status](https://travis-ci.org/ffissore/geoip-rs.svg?branch=master)](https://travis-ci.com/ffissore/geoip-rs)
 
 geoip-rs is a geoip service: it provides geographical information about the calling or the specified IP address. It supports both IPV4 and IPV6.
 
