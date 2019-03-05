@@ -44,7 +44,7 @@ Not found (private) ip address:
 
 ### Speed
 
-On an 8 cores Intel i7, geoip.rs can serve ~35K requests/sec.
+On an 8 cores Intel i7, geoip.rs can serve ~30K requests/sec.
  
 ### Dataset
 
