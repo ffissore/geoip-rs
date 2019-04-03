@@ -54,7 +54,19 @@ Download "GeoLite2 City" dataset in binary format from [here](https://dev.maxmin
 
 ### Running
 
-Install geoip.rs with `cargo install geoip-rs`. If you don't know what `cargo` is, [read the tutorial](https://doc.rust-lang.org/cargo/getting-started/installation.html). 
+Install geoip.rs with 
+
+```bash
+cargo install geoip-rs
+```
+
+If you don't have `cargo`, install it with
+ 
+```bash
+curl https://sh.rustup.rs -sSf | sh
+```
+
+or [read the tutorial](https://doc.rust-lang.org/cargo/getting-started/installation.html) for additional instructions. 
 
 You can specify the dataset location on the command line
 ```bash
