@@ -5,13 +5,15 @@
 
 geoip-rs is a geoip service: it provides geographical information about the calling or the specified IP address. It supports both IPV4 and IPV6.
 
-When called with no query params, it resolves the calling IP address. For example: https://api.geoip.rs
+* When called with no query params, it resolves the calling IP address. For example: https://api.geoip.rs
 
-When called with the `ip` query param, it resolves the specified IP address. For example: https://api.geoip.rs/?ip=216.58.205.132
+* When called with the `ip` query param, it resolves the specified IP address. For example: https://api.geoip.rs/?ip=216.58.205.132
 
-If the provided IP address is invalid, it falls back to the calling IP address.
+  If the provided IP address is invalid, it falls back to the calling IP address.
 
-By default, responses will be in english. An optional `lang` query param can be provided: if a translation is available, returned data will be in that language. Current list includes: `de`, `en`, `es`, `fr`, `ja`, `pt-BR`, `ru`, `zh-CH`.
+* When called with the `callback` query param, it returns a JSONP response, with the json wrapped by the specified callback. For example: https://api.geoip.rs/?ip=216.58.205.132&callback=my_function
+
+* By default, responses will be in english. An optional `lang` query param can be provided: if a translation is available, returned data will be in that language. Current list includes: `de`, `en`, `es`, `fr`, `ja`, `pt-BR`, `ru`, `zh-CH`. For example: https://api.geoip.rs/?ip=216.58.205.132&lang=ja
 
 ### Example response
 
