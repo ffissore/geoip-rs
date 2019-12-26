@@ -11,9 +11,12 @@ keywords = ["geoip", "maxmind", "geolocation"]
 homepage = "https://geoip.rs/"
 
 [dependencies]
-actix-web = "0.7"
+actix-rt = "1"
+actix-web = "2"
+actix-cors = "0.2"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
 maxminddb = { version = "0.13.0", features = ["mmap"] }
 memmap = "0.7.0"
+dotenv = "0.15.0"
