@@ -79,6 +79,12 @@ or via environment variable
 export GEOIP_RS_DB_PATH=/path/to/GeoLite2-City.mmdb
 geoip-rs
 ```
+or via `.env`
+```bash
+cp .env.template .env
+#edit .env appropriately
+geoip-rs
+```
 
 You can also customize the host and port geoip.rs will listen to
 ```bash
@@ -87,6 +93,7 @@ export GEOIP_RS_HOST=192.168.0.1
 export GEOIP_RS_PORT=8080
 geoip-rs
 ```
+or you can copy `.env.template` to `.env` and customize its contents
 
 ### License
 

@@ -608,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "geoip-rs"
-version = "0.5.3"
+version = "0.6.0"
 dependencies = [
  "actix-cors 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "actix-rt 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
