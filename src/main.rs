@@ -20,14 +20,13 @@ use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
 use std::sync::Arc;
 
+use actix_cors::Cors;
 use actix_web::http::HeaderMap;
-use actix_web::middleware::cors::Cors;
-use actix_web::server;
+use actix_web::web;
 use actix_web::App;
-use actix_web::FromRequest;
 use actix_web::HttpRequest;
 use actix_web::HttpResponse;
-use actix_web::Query;
+use actix_web::HttpServer;
 use maxminddb::geoip2::City;
 use maxminddb::MaxMindDBError;
 use maxminddb::Reader;
@@ -65,50 +64,39 @@ struct QueryParams {
 }
 
 fn ip_address_to_resolve(
-    query: &Query<QueryParams>,
+    ip: Option<String>,
     headers: &HeaderMap,
     remote_addr: Option<&str>,
 ) -> String {
-    query
-        .ip
-        .as_ref()
-        .filter(|ip_address| {
-            ip_address.parse::<Ipv4Addr>().is_ok() || ip_address.parse::<Ipv6Addr>().is_ok()
-        })
-        .map(|s| s.to_owned())
-        .or_else(|| {
-            headers
-                .get("X-Real-IP")
-                .map(|s| s.to_str().unwrap().to_string())
-        })
-        .or_else(|| {
-            remote_addr
-                .map(|ip_port| ip_port.split(':').take(1).last().unwrap())
-                .map(|ip| ip.to_string())
-        })
-        .expect("unable to find ip address to resolve")
+    ip.filter(|ip_address| {
+        ip_address.parse::<Ipv4Addr>().is_ok() || ip_address.parse::<Ipv6Addr>().is_ok()
+    })
+    .or_else(|| {
+        headers
+            .get("X-Real-IP")
+            .map(|s| s.to_str().unwrap().to_string())
+    })
+    .or_else(|| {
+        remote_addr
+            .map(|ip_port| ip_port.split(':').take(1).last().unwrap())
+            .map(|ip| ip.to_string())
+    })
+    .expect("unable to find ip address to resolve")
 }
 
-fn get_language(query: &Query<QueryParams>) -> String {
-    query
-        .lang
-        .as_ref()
-        .map(|s| s.to_owned())
-        .unwrap_or_else(|| String::from("en"))
+fn get_language(lang: Option<String>) -> String {
+    lang.unwrap_or_else(|| String::from("en"))
 }
 
 struct Db {
     db: Arc<Reader<Mmap>>,
 }
 
-fn index(req: &HttpRequest<Db>) -> HttpResponse {
-    let query = Query::<QueryParams>::extract(req).unwrap();
+async fn index(req: HttpRequest, data: web::Data<Db>, web::Query(query): web::Query<QueryParams>) -> HttpResponse {
+    let language = get_language(query.lang);
+    let ip_address = ip_address_to_resolve(query.ip, req.headers(), req.connection_info().remote());
 
-    let language = get_language(&query);
-    let ip_address = ip_address_to_resolve(&query, req.headers(), req.connection_info().remote());
-    let db: &Reader<Mmap> = &req.state().db;
-
-    let lookup: Result<City, MaxMindDBError> = db.lookup(ip_address.parse().unwrap());
+    let lookup: Result<City, MaxMindDBError> = data.db.lookup(ip_address.parse().unwrap());
 
     let geoip = match lookup {
         Ok(geoip) => {
@@ -200,16 +188,15 @@ fn index(req: &HttpRequest<Db>) -> HttpResponse {
                     .map(String::as_str)
                     .unwrap_or(""),
             };
-            serde_json::to_string(&res).ok()
+            serde_json::to_string(&res)
         }
         Err(_) => serde_json::to_string(&NonResolvedIPResponse {
             ip_address: &ip_address,
-        })
-        .ok(),
+        }),
     }
     .unwrap();
 
-    match &query.callback {
+    match query.callback {
         Some(callback) => HttpResponse::Ok()
             .content_type("application/javascript; charset=utf-8")
             .body(format!(";{}({});", callback, geoip)),
@@ -220,9 +207,8 @@ fn index(req: &HttpRequest<Db>) -> HttpResponse {
 }
 
 fn db_file_path() -> String {
-    let db_file_env_var = env::var("GEOIP_RS_DB_PATH");
-    if db_file_env_var.is_ok() {
-        return db_file_env_var.unwrap();
+    if let Ok(file) = env::var("GEOIP_RS_DB_PATH") {
+        return file;
     }
 
     let args: Vec<String> = env::args().collect();
@@ -232,8 +218,10 @@ fn db_file_path() -> String {
 
     panic!("You must specify the db path, either as a command line argument or as GEOIP_RS_DB_PATH env var");
 }
+#[actix_rt::main]
+async fn main() {
+    dotenv::from_path(".env").ok();
 
-fn main() {
     let host = env::var("GEOIP_RS_HOST").unwrap_or_else(|_| String::from("127.0.0.1"));
     let port = env::var("GEOIP_RS_PORT").unwrap_or_else(|_| String::from("3000"));
 
@@ -241,12 +229,15 @@ fn main() {
 
     let db = Arc::new(Reader::open_mmap(db_file_path()).unwrap());
 
-    server::new(move || {
-        App::with_state(Db { db: db.clone() })
-            .middleware(Cors::build().send_wildcard().finish())
-            .resource("/", |r| r.f(index))
+    HttpServer::new(move || {
+        App::new()
+            .data(Db { db: db.clone() })
+            .wrap(Cors::new().send_wildcard().finish())
+            .route("/", web::route().to(index))
     })
     .bind(format!("{}:{}", host, port))
     .unwrap_or_else(|_| panic!("Can not bind to {}:{}", host, port))
-    .run();
+    .run()
+    .await
+    .unwrap();
 }
