@@ -51,7 +51,7 @@
     fetch(endpoint)
       .then(res => Promise.all([res.url, res.json()]))
       .then(([url, obj]) => {
-          document.querySelector(".simple_example").innerHTML = `curl ${url}\n\n${JSON.stringify(obj, null, 2)}`;
+          document.querySelector(".simple_example").innerHTML = `curl '${url}'\n\n${JSON.stringify(obj, null, 2)}`;
           return obj.ip_address;
       })
       .then(ip_address => {
@@ -59,18 +59,18 @@
               fetch(`${endpoint}?ip=${ip_address}`)
                 .then(res => Promise.all([res.url, res.json()]))
                 .then(([url, obj]) => {
-                    document.querySelector(".specified_example").innerHTML = `curl ${url}\n\n${JSON.stringify(obj, null, 2)}`;
+                    document.querySelector(".specified_example").innerHTML = `curl '${url}'\n\n${JSON.stringify(obj, null, 2)}`;
                 }),
               fetch(`${endpoint}?ip=${ip_address}&callback=my_function`)
                 .then(res => Promise.all([res.url, res.text()]))
                 .then(([url, text]) => {
-                    document.querySelector(".jsonp_example").innerHTML = `curl ${url}\n\n`;
+                    document.querySelector(".jsonp_example").innerHTML = `curl '${url}'\n\n`;
                     eval(text);
                 }),
               fetch(`${endpoint}?ip=${ip_address}&lang=ja&callback=my_japanese_function`)
                 .then(res => Promise.all([res.url, res.text()]))
                 .then(([url, text]) => {
-                    document.querySelector(".jsonp_ja_example").innerHTML = `curl ${url}\n\n`;
+                    document.querySelector(".jsonp_ja_example").innerHTML = `curl '${url}'\n\n`;
                     eval(text);
                 }),
           ])
